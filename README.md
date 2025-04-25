@@ -1,6 +1,8 @@
 # Ethiopian Adolescent Girls' Sexual and Reproductive Health (SRH) Services Satisfaction Dashboard
 By Danyang Chen
 
+An interactive **flexdashboard** that explores the **accessibility** and **satisfaction** of the sexual and reproductive health (SRH) services among adolescent girls (15–19 yrs) in Afar and East & West Hararghe zones of Oromia, Ethiopia (2024).
+
 ---
 
 ## Repository
