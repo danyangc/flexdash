@@ -1,0 +1,143 @@
+---
+title: "Final Project"
+author: "Danyang Chen"
+output:
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+    theme: lumen
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+#Read in data
+library(ggplot2)
+library(esquisse)
+library(haven)
+library(plotly)
+library(DT)
+library(dplyr)
+
+client_exit_raw <- read_dta("care/Client Exit.dta")
+
+client_exit <- client_exit_raw %>%
+  select(sex,age, Region,Zone,HH_ID,HC_type,quick_consult,consult_time,treatment_type,listining,ask,full_info,
+         access_help,confidentiality,SRH,recommend) %>%
+  filter(sex=="female")
+client_exit <- na.omit(client_exit)
+client_exit <- client_exit %>%
+  mutate(across(everything(), haven::as_factor))
+
+# Create Privacy and Confidentiality Score (0-5)
+client_exit$Privacy_Confidentiality_Score <- rowSums(client_exit[, c("listining", "ask", "full_info", 
+                                                   "access_help", "confidentiality")] == "Yes")
+
+# Create SRH Service Utilization Score (0-5)
+client_exit$SRH_Utilization_Score <- rowSums(client_exit[, c("quick_consult", "consult_time", "treatment_type",
+                                           "SRH", "recommend")] == "Yes")
+
+# Rename columns for readability 
+client_exit <- client_exit %>% 
+  rename(
+    `Zone Name` = Zone,
+    `Health Center Type` = HC_type,
+    `Recommendation` = recommend,
+    `Confidentiality Score` = confidentiality,
+    `Privacy and Confidentiality Score` = Privacy_Confidentiality_Score,
+    `Sexaul and Reproductive Health Service Utilization Score` = SRH_Utilization_Score,
+  )
+
+client_exit <- client_exit %>% 
+  mutate(`Zone Name` = case_when(
+    `Zone Name` == "East_H" ~ "East Haraghe",
+    `Zone Name` == "West_H" ~ "West Haraghe",
+    `Zone Name` == "Zone_3" ~ "Zone 3",
+    TRUE ~ as.character(`Zone Name`)
+  ))
+
+# Process data: Calculate satisfaction percentage and summary stats
+client_exit_summary <- client_exit %>%
+  group_by(Region, `Zone Name`, `Health Center Type`) %>%
+  summarise(
+    Satisfied_Pct = mean(`Recommendation` == "Yes", na.rm = TRUE) * 100,
+    Privacy_Mean = mean(`Privacy and Confidentiality Score`, na.rm = TRUE),
+    Privacy_Median = median(`Privacy and Confidentiality Score`, na.rm = TRUE)
+  )
+```
+
+# Dataset Visualization
+
+Access GitHub page here: https://github.com/danyangc/flexdashboard
+
+**Widget 1: Interactive Bar Chart**
+
+```{r, echo=FALSE}
+p <- ggplot(client_exit_summary, aes(x = Region, y = Satisfied_Pct, fill = `Health Center Type`, text = paste(
+  "Zone Name:", `Zone Name`, "<br>",
+  "Satisfied %:", round(Satisfied_Pct, 2), "<br>",
+  "Mean Privacy Score:", round(Privacy_Mean, 2), "<br>",
+  "Median Privacy Score:", round(Privacy_Median, 2)
+))) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  labs(title = "Client Satisfaction Across Regions and Facility Types",
+       x = "Region", y = "Satisfied Clients (%)") +
+  theme_minimal()
+
+# Convert to plotly for interactivity
+plotly::ggplotly(p, tooltip = "text")
+
+```
+
+**Key Takeaways from Widget 1**
+
+-   Clients in **Zonal Hospitals** report consistently **high satisfaction levels (100%)**, with higher privacy means, particularly in **East Haraghe (4.5)** and **Zone 3 (4.0)**.
+-   **Health centers in East Haraghe** show a lower satisfaction rate (**75%**) and a lower privacy mean (**3.13**), indicating potential privacy concerns.
+-   The lowest privacy perception is in **West Haraghe Zonal Hospital (1.0)**, despite a **100% satisfaction rate**, suggesting that satisfaction may not always correlate with perceived privacy.
+
+Row {data-width=650}
+----------------------------------
+
+**Widget 2: Interactive Data Table**
+
+Row {data-width=650}
+----------------------------------
+
+```{r, echo=FALSE}
+DT::datatable(
+  client_exit %>% select(age, Region, `Zone Name`, `Health Center Type`, `Privacy and Confidentiality Score`, `Sexaul and Reproductive Health Service Utilization Score`, Recommendation),
+  filter = "top",
+  options   = list(
+    pageLength = 10,
+    autoWidth  = TRUE,
+    scrollY    = 380,
+    paging     = FALSE
+  )
+)
+```
+
+Row {data-width=650}
+----------------------------------
+
+**Key Takeaways from Widget 2**
+
+Row {data-width=650}
+----------------------------------
+
+-   Privacy perception scores impact service recommendations **higher privacy scores usually align with higher satisfaction levels**
+
+-   **West Haraghe Zonal Hospital** has only **one client** in the dataset, which limits broader conclusions, but this client reported low privacy perception (1.0) despite 100% satisfaction.
+
+Row {data-width=650}
+----------------------------------
+
+**Real-world impact** This dashboard highlights privacy-related gaps in SRH services for Ethiopian adolescents. Findings can help inform targeted improvements in service delivery across different regions in Ethiopia.
+
+
+# Dataset Description
+
+**Dataset Information**
+
+The dataset was collected in February 2024 as part of a baseline assessment for the “Uplift Her” project, by CARE Ethiopia. It includes responses from 29 adolescent girls who completed a clinic exit survey after receiving health services. The survey was conducted in Afar and Oromia regions by trained staff from BAN – Development Research Center for Excellence (BAN-DRCE). Data were collected through face-to-face interviews and entered digitally in .dta (Stata) format. The dataset is confidential and not publicly available due to the sensitivity of the information collected.
